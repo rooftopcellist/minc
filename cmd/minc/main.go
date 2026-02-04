@@ -24,6 +24,7 @@ var (
 	httpPort            string
 	uShiftImage         string
 	disableOverlayCache bool
+	rootless            bool
 )
 
 var createCmd = &cobra.Command{
@@ -189,6 +190,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVarP(&provider, "provider", "p", "", "Specify the provider (e.g., podman, docker)")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "", "Log level (e.g., info, debug, warn)")
+	rootCmd.PersistentFlags().BoolVar(&rootless, "rootless", false, "Run in rootless mode without sudo (experimental, Linux only)")
 
 	// Add config subcommands
 	configCmd.AddCommand(configSetCmd, configGetCmd, configUnsetCmd, configViewCmd)
@@ -198,6 +200,7 @@ func main() {
 	// Binding with viper
 	viper.BindPFlag("provider", rootCmd.PersistentFlags().Lookup("provider"))
 	viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level"))
+	viper.BindPFlag("rootless", rootCmd.PersistentFlags().Lookup("rootless"))
 	viper.BindPFlag("microshift-version", createCmd.PersistentFlags().Lookup("microshift-version"))
 	viper.BindPFlag("microshift-image", createCmd.PersistentFlags().Lookup("microshift-image"))
 	viper.BindPFlag("microshift-config", createCmd.PersistentFlags().Lookup("microshift-config"))

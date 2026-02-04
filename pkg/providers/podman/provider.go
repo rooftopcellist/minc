@@ -16,9 +16,11 @@ import (
 	"github.com/minc-org/minc/pkg/log"
 	"github.com/minc-org/minc/pkg/providers"
 	"github.com/minc-org/minc/pkg/retry"
+	"github.com/spf13/viper"
 )
 
 var useSudo bool
+var forceRootless bool
 var once sync.Once
 
 // Provider implements provider.Provider
@@ -158,6 +160,14 @@ func (p *provider) List() ([]byte, error) {
 func getProviderInfo() (*providers.ProviderInfo, error) {
 	var initError error
 	once.Do(func() {
+		// Check if rootless mode is explicitly enabled via config/flag
+		forceRootless = viper.GetBool("rootless")
+		if forceRootless {
+			log.Debug("Rootless mode enabled via --rootless flag")
+			useSudo = false
+			return
+		}
+
 		cmd := exec.Command("podman", "info", "--format", "{{.Host.Security.Rootless}}")
 		out, err := exec.Output(cmd)
 		if err != nil {
@@ -211,8 +221,15 @@ func checkCGroupsAndRootFulMode(pInfo *providers.ProviderInfo) error {
 	if !pInfo.CGroupV2 {
 		return fmt.Errorf("podman provider requires cgroup v2")
 	}
+	// Skip rootful check if --rootless flag is set
+	if forceRootless {
+		if pInfo.Rootless {
+			log.Debug("Running in rootless mode (--rootless flag set)")
+		}
+		return nil
+	}
 	if pInfo.Rootless {
-		return fmt.Errorf("podman provider requires rootful mode")
+		return fmt.Errorf("podman provider requires rootful mode (use --rootless to override)")
 	}
 	return nil
 }

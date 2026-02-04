@@ -30,13 +30,12 @@ Get the latest release from GitHub release page as per your platform.
 
 #### Linux
 
-In Linux, minc require sudo permission to run podman command because it is not working with rootless mode as of now.
-Check: https://github.com/minc-org/minc/issues/22
-
 ```bash
 curl -L -o minc  https://github.com/minc-org/minc/releases/latest/download/minc_linux_amd64
 chmod +x minc
 ```
+
+By default, MINC uses `sudo` to run Podman in rootful mode. See the [Rootless Mode](#rootless-mode-linux) section below for running without sudo.
 
 #### Mac
 ```bash
@@ -105,9 +104,68 @@ minc config -h
 | `provider`           | Container runtime provider, e.g., `docker`, `podman` (default: `podman`)                                                                              |
 | `https-port`         | Different port to use for exposing https service (default:`9443`)                                                                                     |
 | `http-port`          | Different port to use for exposing https service (default:`9080`)                                                                                     |
+| `rootless`           | Run in rootless mode without sudo on Linux (default: `false`). See [Rootless Mode](#rootless-mode-linux).                                            |
 
 
 Once the container is running, you can interact with the MicroShift cluster using `kubectl` or `oc` tools.
+
+## Rootless Mode (Linux)
+
+MINC supports running with rootless Podman on Linux, which eliminates the need for `sudo`. This is useful on systems like Fedora where rootless Podman is the default.
+
+### Enabling Rootless Mode
+
+```bash
+# Via command-line flag
+minc --rootless create
+
+# Or set it permanently via config
+minc config set rootless true
+minc create
+```
+
+### System Requirements for Rootless Mode
+
+Running MicroShift in rootless Podman requires sufficient subordinate UID/GID mappings. The MicroShift container image contains files owned by high-numbered UIDs (100000+), which must be mapped to your user namespace.
+
+#### Fedora / RHEL / CentOS
+
+1. **Check your current mappings:**
+   ```bash
+   cat /etc/subuid
+   cat /etc/subgid
+   ```
+
+   You need at least 65536 subordinate IDs starting from a base of 100000 or higher.
+
+2. **Add sufficient mappings (if needed):**
+   ```bash
+   sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $USER
+   ```
+
+3. **Apply the changes:**
+   ```bash
+   podman system migrate
+   ```
+
+4. **Verify the mappings:**
+   ```bash
+   podman unshare cat /proc/self/uid_map
+   ```
+
+#### Troubleshooting
+
+If you see an error like:
+```
+insufficient UIDs or GIDs available in user namespace (requested 100058:100058)
+```
+
+This means your subordinate UID/GID range is too small. Follow the steps above to add more mappings.
+
+#### Additional Resources
+
+- [Podman Rootless Setup](https://github.com/containers/podman/blob/main/docs/tutorials/rootless_tutorial.md)
+- [Understanding subuid/subgid](https://www.redhat.com/sysadmin/rootless-podman-user-namespace-modes)
 
 ## Contributing
 
